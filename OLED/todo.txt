@@ -1,0 +1,3 @@
+ssd1306_draw_line(x0, y0, x1, y1, color);   // Bresenham
+ssd1306_draw_circle(x, y, r, color);
+ssd1306_fill_circle(x, y, r, color);
