@@ -6,6 +6,10 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_check.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include "fonts/font.h"
 
 #define I2C_MASTER_SDA_IO GPIO_NUM_10
 #define I2C_MASTER_SCL_IO GPIO_NUM_11
@@ -67,31 +71,31 @@ typedef enum
 } ssd1306_command_t;
 
 static const uint8_t ssd1306_init_sequence[] = {
-    SSD1306_DISPLAY_OFF,              // Display OFF
-    SSD1306_SET_DISPLAY_CLOCK_DIV,    // Set Display Clock Divide Ratio/Oscillator Frequency
-    0x80,                             // clock divide ratio
-    SSD1306_SET_MULTIPLEX,            // Set Multiplex Ratio
-    0x3F,                             // Multiplex Ratio for 128x64 (64-1)
-    SSD1306_SET_DISPLAY_OFFSET,       // Set Display Offset
-    0x00,                             // Display Offset
-    SSD1306_SET_START_LINE,           // Set Start Line
-    SSD1306_SET_CHARGE_PUMP,          // Set Charge Pump
-    0x14,                             // Enable Charge Pump
-    SSD1306_SET_MEMORY_ADDR_MODE,     // Set Memory Addressing Mode
-    0x00,                             // Horizontal Addressing Mode
-    SSD1306_SET_SEGMENT_REMAP_NORMAL, // Set Segment Re-map
-    SSD1306_SET_COM_SCAN_DEC,         // Set COM Output Scan Direction
-    SSD1306_SET_COM_PINS,             // Set COM Pins Hardware Configuration
-    0x12,                             // COM Pins Hardware Configuration
-    SSD1306_SET_CONTRAST,             // Set Contrast Control
-    0xFF,                             // Contrast Control
-    SSD1306_SET_PRECHARGE,            // Set Pre-charge Period
-    0xF1,                             // Pre-charge Period¨
-    SSD1306_SET_VCOM_DESELECT,        // Set VCOMH Deselect Level
-    0x40,                             // VCOMH Deselect Level
-    SSD1306_DISPLAY_ALL_ON_RESUME,    // Entire Display ON
-    SSD1306_NORMAL_DISPLAY,           // Set Normal Display
-    SSD1306_DISPLAY_ON                // Display ON
+    SSD1306_DISPLAY_OFF,               // Display OFF
+    SSD1306_SET_DISPLAY_CLOCK_DIV,     // Set Display Clock Divide Ratio/Oscillator Frequency
+    0x80,                              // clock divide ratio
+    SSD1306_SET_MULTIPLEX,             // Set Multiplex Ratio
+    0x3F,                              // Multiplex Ratio for 128x64 (64-1)
+    SSD1306_SET_DISPLAY_OFFSET,        // Set Display Offset
+    0x00,                              // Display Offset
+    SSD1306_SET_START_LINE,            // Set Start Line
+    SSD1306_SET_CHARGE_PUMP,           // Set Charge Pump
+    0x14,                              // Enable Charge Pump
+    SSD1306_SET_MEMORY_ADDR_MODE,      // Set Memory Addressing Mode
+    0x00,                              // Horizontal Addressing Mode
+    SSD1306_SET_SEGMENT_REMAP_REVERSE, // Set Segment Re-map
+    SSD1306_SET_COM_SCAN_DEC,          // Set COM Output Scan Direction
+    SSD1306_SET_COM_PINS,              // Set COM Pins Hardware Configuration
+    0x12,                              // COM Pins Hardware Configuration
+    SSD1306_SET_CONTRAST,              // Set Contrast Control
+    0xFF,                              // Contrast Control
+    SSD1306_SET_PRECHARGE,             // Set Pre-charge Period
+    0xF1,                              // Pre-charge Period¨
+    SSD1306_SET_VCOM_DESELECT,         // Set VCOMH Deselect Level
+    0x40,                              // VCOMH Deselect Level
+    SSD1306_DISPLAY_ALL_ON_RESUME,     // Entire Display ON
+    SSD1306_NORMAL_DISPLAY,            // Set Normal Display
+    SSD1306_DISPLAY_ON                 // Display ON
 };
 
 esp_err_t ssd1306_write_command(uint8_t cmd)
@@ -151,17 +155,19 @@ esp_err_t ssd1306_draw_pixel(uint8_t x, uint8_t y, bool color)
 
 esp_err_t ssd1306_draw_hline(int x, int y, uint8_t length, bool color)
 {
-    if (y < 0 || y >= SSD1306_HEIGHT) return ESP_OK;
-    if (length <= 0) return ESP_OK;
+    if (y < 0 || y >= SSD1306_HEIGHT)
+        return ESP_OK;
+    if (length <= 0)
+        return ESP_OK;
 
-    
     int x_end = x + length;
 
-    if (x_end < 0 || x >= SSD1306_WIDTH) return ESP_OK;
+    if (x_end < 0 || x >= SSD1306_WIDTH)
+        return ESP_OK;
 
     if (x < 0)
     {
-        length += x;   // reduce
+        length += x; // reduce
         x = 0;
     }
 
@@ -179,14 +185,53 @@ esp_err_t ssd1306_draw_hline(int x, int y, uint8_t length, bool color)
 }
 esp_err_t ssd1306_draw_vline(int x, int y, uint8_t length, bool color)
 {
-    if (x < 0 || x >= SSD1306_WIDTH) return ESP_OK;
-    if (y < 0 || y + length > SSD1306_HEIGHT) return ESP_OK;
+    if (x < 0 || x >= SSD1306_WIDTH)
+        return ESP_OK;
+    if (y < 0 || y + length > SSD1306_HEIGHT)
+        return ESP_OK;
     for (uint8_t i = 0; i < length; i++)
     {
         ESP_RETURN_ON_ERROR(ssd1306_draw_pixel(x, y + i, color), "ssd1306_draw_vline", "");
     }
     return ESP_OK;
 }
+esp_err_t ssd1306_draw_line(int x0, int y0, int x1, int y1, bool color)
+{
+    int dx = abs(x1 - x0);
+    int sx = (x0 < x1) ? 1 : -1;
+
+    int dy = -abs(y1 - y0);
+    int sy = (y0 < y1) ? 1 : -1;
+
+    int err = dx + dy;
+
+    while (true)
+    {
+        ESP_RETURN_ON_ERROR(
+            ssd1306_draw_pixel(x0, y0, color),
+            "ssd1306_draw_line", "");
+
+        if (x0 == x1 && y0 == y1)
+            break;
+
+        int e2 = 2 * err;
+
+        if (e2 >= dy)
+        {
+            err += dy;
+            x0 += sx;
+        }
+
+        if (e2 <= dx)
+        {
+            err += dx;
+            y0 += sy;
+        }
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t ssd1306_draw_rectangle(uint8_t x, uint8_t y, uint8_t width, uint8_t height, bool color)
 {
     if (x + width > SSD1306_WIDTH || y + height > SSD1306_HEIGHT)
@@ -221,7 +266,7 @@ esp_err_t ssd1306_draw_circle(int cx, int cy, uint8_t r)
     int p = 1 - r;
     while (x <= y)
     {
-        
+
         ssd1306_draw_pixel(cx + x, cy + y, true);
         ssd1306_draw_pixel(cx + x, cy - y, true);
         ssd1306_draw_pixel(cx - x, cy + y, true);
@@ -230,7 +275,6 @@ esp_err_t ssd1306_draw_circle(int cx, int cy, uint8_t r)
         ssd1306_draw_pixel(cx + y, cy - x, true);
         ssd1306_draw_pixel(cx - y, cy + x, true);
         ssd1306_draw_pixel(cx - y, cy - x, true);
-
 
         if (p < 0)
         {
@@ -271,6 +315,47 @@ esp_err_t ssd1306_fill_circle(int cx, int cy, uint8_t r)
         }
         x++;
     }
+    return ESP_OK;
+}
+
+esp_err_t ssd1306_draw_char(uint8_t x, uint8_t y, char c, bool color)
+{
+    if (c < FONT5X7_FIRST_CHAR || c > FONT5X7_LAST_CHAR)
+        return ESP_OK;
+
+    const uint8_t *glyph = font5x7[(uint8_t)c - FONT5X7_FIRST_CHAR];
+
+    for (int col = 0; col < 5; col++)
+    {
+        uint8_t line = glyph[col];
+
+        for (int row = 0; row < 7; row++)
+        {
+            if ((line >> row) & 1)
+            {
+                ssd1306_draw_pixel(x + col, y + row, color);
+            }
+        }
+    }
+
+    return ESP_OK;
+}
+esp_err_t ssd1306_draw_string(uint8_t x, uint8_t y, const char *str, bool color)
+{
+    while (*str)
+    {
+        if (x + 6 >= SSD1306_WIDTH) // 5px + 1 spacing
+        {
+            x = 0;
+            y += 8;
+        }
+
+        ssd1306_draw_char(x, y, *str, color);
+
+        x += 6; // 5px font + 1px spacing
+        str++;
+    }
+
     return ESP_OK;
 }
 
@@ -323,17 +408,17 @@ void app_main(void)
 
     while (true)
     {
-        for (int r = 0; r < 5; r++)
-        {
-            ssd1306_clear_display();
 
-            for (int R = 0; R < 20; R++)
-            {
-                ssd1306_draw_circle(64, 32, r + R * 5);
-            }
+        for (int i = 0; i < 3; i++)
+        {
+
+            char str[32];
+            sprintf(str, "Hello, World! %d", i);
+            ssd1306_clear_display();
+            ssd1306_draw_string(0, 0, str, true);
 
             ESP_ERROR_CHECK(ssd1306_update());
-            vTaskDelay(pdMS_TO_TICKS(30));
+            vTaskDelay(pdMS_TO_TICKS(666));
         }
     }
 }

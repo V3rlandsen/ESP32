@@ -1,3 +1,41 @@
 ssd1306_draw_line(x0, y0, x1, y1, color);   // Bresenham
-ssd1306_draw_circle(x, y, r, color);
-ssd1306_fill_circle(x, y, r, color);
+TEXT RENDERING BITMAP
+
+Performance upgrades (important for ESP32)
+
+Right now you're doing pixel-by-pixel I2C framebuffer writes.
+
+Later improvements:
+
+🔹 Dirty rectangle system
+
+Only send changed regions.
+
+🔹 Page batching (very important for SSD1306)
+
+Instead of full framebuffer always:
+
+update per 8-pixel page
+reduces I2C bandwidth pressure
+🔹 Optional: double buffer
+framebuffer_front
+framebuffer_back
+
+Prevents flicker in animations.
+
+6. UI helpers (what makes it feel “real”)
+
+These are underrated but powerful:
+
+draw_progress_bar
+draw_bitmap
+draw_icon
+invert_rect
+clear_rect
+draw_crosshair (great for debugging center coords)
+
+7. Geometry helpers (helps everything else)
+clamp(int v, int min, int max)
+abs_int
+sign
+maybe distance_squared (for radial effects)
