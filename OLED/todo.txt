@@ -1,5 +1,4 @@
-ssd1306_draw_line(x0, y0, x1, y1, color);   // Bresenham
-TEXT RENDERING BITMAP
+
 
 Performance upgrades (important for ESP32)
 
@@ -39,3 +38,24 @@ clamp(int v, int min, int max)
 abs_int
 sign
 maybe distance_squared (for radial effects)
+
+
+2. Partial screen updates
+Right now ssd1306_update() always pushes the entire framebuffer (1024 bytes) over I2C every frame, even if you only changed one small icon. For animations or frequent redraws this is slow. A ssd1306_update_region(x, y, w, h) that sets a smaller column/page address window and only transmits the affected bytes would meaningfully speed up your cat-blinking loop.
+3. Double buffering / dirty-rect tracking
+Related to above — track which pages were touched since the last update so you can skip untouched ones automatically, rather than manually specifying regions every time.
+4. Text improvements
+
+Word wrap in ssd1306_draw_string currently wraps mid-character on any char with no regard for word boundaries.
+No support for different font sizes (you only have 5x7). A simple 2x/3x pixel-scaling blit for "big text" is a common ask.
+No inverted/highlighted text (background box behind string) — useful for menus/selection UI.
+
+5. Contrast/brightness ramping, sleep mode
+You have ssd1306_set_contrast and ssd1306_set_display_on, but no software fade or a proper low-power sleep sequence (charge pump disable before display off, re-enable after) for battery-powered projects.
+6. Rotation/mirroring
+SSD1306_SET_SEGMENT_REMAP and SSD1306_SET_COM_SCAN_DEC/INC are baked into your init sequence as fixed values — exposing a ssd1306_set_rotation(uint8_t degrees) that flips these at runtime is handy if you ever mount the display upside down.
+7. Menu/UI helpers
+If this is heading toward a device with buttons, a simple selectable-list widget (highlight bar, scroll) built on your existing rect/text primitives would be the next practical layer up.
+8. Testing/simulation
+Since I2C bring-up bugs (like the bitmap indexing one) are hard to debug on hardware, a small host-side SDL or terminal-ASCII framebuffer renderer that mimics ssd1306_draw_pixel/ssd1306_update would let you iterate on graphics logic without flashing the ESP32 every time.
+Want me to implement any of these? Partial updates (#2) or word-wrap + bigger text (#4) are probably the highest practical value if you're building an actual UI.
